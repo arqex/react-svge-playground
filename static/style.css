@@ -1,0 +1,21 @@
+body {
+	background: #eee;
+	padding: 0;
+	margin: 0;
+}
+
+.toolbar {
+	background: #ccc;
+	margin-bottom: 5px;
+}
+
+.tbButton {
+	background: #bbb;
+	padding: 2px 5px;
+	display: inline-block;
+	margin-right: 5px;
+}
+
+.tbButton.tbSelected {
+	background: #fff;
+}
