@@ -61,8 +61,8 @@ var PathMode = React.createClass({
 		else {
 			point.set({
 				benders: [
-					{ id: point.id + '_b' + utils.id(), x: -x, y: -y },
-					{ id: point.id + '_b' + utils.id(), x: x, y: y }
+					{ id: point.id + '_b' + utils.id(), x: -x, y: -y, type: 'bender' },
+					{ id: point.id + '_b' + utils.id(), x: x, y: y, type: 'bender' }
 				],
 				lockedBenders: true
 			});

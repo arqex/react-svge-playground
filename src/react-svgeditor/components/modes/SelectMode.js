@@ -1,6 +1,7 @@
 var React = require('react');
 var DataCanvas = require('../DataCanvas');
 var utils = require('../../utils');
+var victor = require('victor');
 
 var SelectMode = React.createClass({
 	statics: {
@@ -39,6 +40,9 @@ var SelectMode = React.createClass({
 				sel.type = element.type;
 				sel.path = element;
 				selected[ element.id ] = sel;
+			}
+			else {
+				selected = this.props.data.selected;
 			}
 		}
 		return this.props.data.set({ selected: selected });
@@ -81,6 +85,20 @@ var SelectMode = React.createClass({
 							x: moving[ elementId ].nextPoint.x,
 							y: moving[ elementId ].nextPoint.y
 						};
+					}
+				}
+				else if( stack[0].type == 'bender' ) {
+					moving[ elementId ] = {
+						type: 'bender',
+						path: stack[2],
+						selectedOrigin: stack[0],
+						selectedOriginPoint: {x: stack[0].x, y: stack[0].y},
+						moveOrigin: pos,
+						point: stack[1]
+					}
+
+					if( stack[1].lockedBenders ){
+						moving[ elementId ].opposite = stack[1].benders[0] == stack[0] ? stack[1].benders[1] : stack[1].benders[0];
 					}
 				}
 			});

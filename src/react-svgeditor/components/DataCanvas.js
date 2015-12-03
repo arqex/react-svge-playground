@@ -143,7 +143,7 @@ var DataCanvas = React.createClass({
 			else
 				children = parent.points;
 		}
-		else if( parent.type == 'pathPoint' )
+		else if( parent.type == 'point' )
 			children = parent.benders;
 		;
 		if( !children )

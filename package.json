@@ -39,6 +39,7 @@
   "dependencies": {
     "freezer-js": "^0.9.4",
     "react": "^0.14.0",
-    "react-dom": "^0.14.0"
+    "react-dom": "^0.14.0",
+    "victor": "^1.1.0"
   }
 }
