@@ -24,32 +24,53 @@ var SelectMode = React.createClass({
 		);
 	},
 
-	onHit: function( stack ){
-		var selected = {};
+	onHit: function( stack, keys ){
+		var current = this.props.data.selected,
+			selected, selection
+		;
+
 		if( stack.length ){
 			if( stack[0].type == 'path' ){
-		    selected[ stack[0].id ] = { type: 'path', points: {}, path: stack[0] };
+				selection = { type: 'path', points: {}, path: stack[0] };
+				if( !keys.shift ){
+					selected = {};
+		    	selected[ stack[0].id ] = selection;
+					this.props.data.set({ selected: selected });
+				}
+				else if( !current[ stack[0].id ] ){
+					this.props.data.selected.set( stack[0].id, selection );
+				}
 		  }
 			else if( stack[0].type == 'point' ){
 				var element = stack[1],
-					points = {},
-					sel
+					points = {}
 				;
-				points[ stack[0].id ] = 1;
-				sel = utils.selectPoints( element, points );
-				sel.type = element.type;
-				sel.path = element;
-				selected[ element.id ] = sel;
-			}
-			else {
-				selected = this.props.data.selected;
+
+				if( !keys.shift ){
+					selected = {};
+					points[ stack[0].id ] = 1;
+					selection = utils.selectPoints( element, points );
+					selection.type = element.type;
+					selection.path = element;
+					selected[ element.id ] = selection;
+					this.props.data.set({ selected: selected });
+				}
+				else if( !current[ stack[0].id ] ){
+					this.props.data.selected.set( stack[0].id, selection );
+					selection = utils.selectPoints( element, points );
+					selection.type = element.type;
+					selection.path = element;
+					this.props.data.selected.set( element.id, selection );
+				}
 			}
 		}
-		return this.props.data.set({ selected: selected });
+		else {
+			this.props.data.set({ selected: {}});
+		}
 	},
 
-	onMoveStart: function( stack, pos ){
-		var data = this.onHit( stack ),
+	onMoveStart: function( stack, pos, keys ){
+		var data = this.onHit( stack, keys ),
 			elements = Object.keys( data.selected ),
 			moving = {}
 		;
@@ -97,7 +118,7 @@ var SelectMode = React.createClass({
 						point: stack[1]
 					}
 
-					if( stack[1].lockedBenders ){
+					if( stack[1].lockedBenders && !keys.alt ){
 						moving[ elementId ].opposite = stack[1].benders[0] == stack[0] ? stack[1].benders[1] : stack[1].benders[0];
 					}
 				}

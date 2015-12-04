@@ -35,7 +35,8 @@ module.exports = function( freezer ){
       else if( element.type == 'bender' ){
         newPos = {
   				x: element.selectedOriginPoint.x + e.canvasX - element.moveOrigin.x,
-  				y: element.selectedOriginPoint.y + e.canvasY - element.moveOrigin.y
+  				y: element.selectedOriginPoint.y + e.canvasY - element.moveOrigin.y,
+          lockedBenders: !!element.opposite
         };
 
         element.selectedOrigin.set( newPos );

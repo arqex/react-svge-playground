@@ -43,7 +43,13 @@ var DataCanvas = React.createClass({
 
 		this.setState({
 			clicking: {x: e.canvasX, y: e.canvasY},
-			stack: this.getSelectStack( e.target )
+			stack: this.getSelectStack( e.target ),
+			keys: {
+				shift: e.shiftKey,
+				ctrl: e.ctrlKey,
+				meta: e.metaKey,
+				alt: e.altKey
+			}
 		});
 	},
 	onMove: function( e ){
@@ -63,7 +69,7 @@ var DataCanvas = React.createClass({
 				clicking.y > e.canvasY + 5 ||
 				clicking.y < e.canvasY - 5 )){
 					this.setState({clicking: false, moving: true })
-					this.props.onMoveStart( this.state.stack, clicking );
+					this.props.onMoveStart( this.state.stack, clicking, this.state.keys );
 					this.props.onWander( e );
 			}
 			else {
@@ -79,13 +85,15 @@ var DataCanvas = React.createClass({
 
 		var pos = {x: e.canvasX, y: e.canvasY};
 		if( this.state.clicking ){
- 			this.props.onHit( this.state.stack, pos );
+ 			this.props.onHit( this.state.stack, pos, this.state.keys );
  		}
  		else if( this.state.moving ){
- 			this.props.onMoveEnd( this.getSelectStack( e.target ), pos );
+ 			this.props.onMoveEnd( this.getSelectStack( e.target ), pos, this.state.keys );
  		}
 
- 		this.setState({clicking: false, moving: false});
+		console.log( this.state.keys );
+
+ 		this.setState({clicking: false, moving: false, keys: false});
 	},
 	getSelectStack: function( el ){
 		var stack = [],

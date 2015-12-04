@@ -19,3 +19,14 @@ body {
 .tbButton.tbSelected {
 	background: #fff;
 }
+
+.three-canvas {
+	background: #ffe;
+	width: 300px;
+	height: 300px;
+	margin-left: 500px;
+}
+
+.three-canvas.over {
+	background: #fff;
+}
