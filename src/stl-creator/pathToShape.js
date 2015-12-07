@@ -1,10 +1,4 @@
-/*
 var THREE = require('three');
-
-module.exports = {
-  transformSVGPath: transformSVGPath
-};
-*/
 
 function createShape( shape, color, x, y, z, rx, ry, rz, s ) {
   // flat shape
@@ -28,7 +22,7 @@ const DEGS_TO_RADS = Math.PI / 180, UNIT_SIZE = 100;
 
 const DIGIT_0 = 48, DIGIT_9 = 57, COMMA = 44, SPACE = 32, PERIOD = 46, MINUS = 45;
 
-function transformSVGPath(pathStr) {
+module.exports = function transformSVGPath(pathStr) {
 	var path = new THREE.Shape();
 
 	var idx = 1, len = pathStr.length, activeCmd,
