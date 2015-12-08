@@ -123,10 +123,16 @@ var StlCreator = React.createClass({
 
       loader.load( es.target.result, function( result ){
         console.log( result );
+
+        me.scene.add( me.parseSVG( result ) );
+        return me.refresh();
+
         var path = result.querySelector('path');
         var d = path.getAttribute('d');
+        /*
         if( d[ d.length - 1].toLowerCase() != 'z' )
           d += 'z';
+        */
         var shape = pathToShape( d );
         var extrudeSettings = {
           amount: -4,
@@ -142,9 +148,13 @@ var StlCreator = React.createClass({
         rect.lineTo( 1, 0 );
         rect.lineTo( 0, 0 ); // closePath
 
-        var spline = new THREE.SplineCurve( shape.getPoints() );
+        console.log(shape.getPoints(10).length);
+        console.log(shape.getPoints(100).length);
+        console.log(shape.getPoints(300).length);
+
+        var spline = new THREE.ClosedSplineCurve3( me.get3DPoints(shape.getPoints(100)) );
         var cubeExtrude = {
-          steps: 30,
+          steps: 400,
           extrudePath: spline,
           bevelEnabled: false
         };
@@ -156,15 +166,18 @@ var StlCreator = React.createClass({
         var weno = new THREE.ExtrudeGeometry( rect, cubeExtrude );
         var wenoweno = new THREE.Mesh( weno, me.material );
 
-        m.position.set(-1,-1,0);
-        m.scale.set(.01, .01, .1);
-        m.rotation.set(Math.PI, 0, 0);
+        var group = new THREE.Object3D();
+        group.add( wenoweno );
+
+        group.rotation.set(Math.PI, 0, 0);
+        group.position.set(-1,-1,0);
+        group.scale.set(.01, .01, .1);
         window.m = m;
 
         l.position.set(-1,-1,0);
         l.scale.set(.01, .01, .01);
         l.rotation.set(Math.PI, 0, 0);
-        me.scene.add( wenoweno );
+        me.scene.add( group );
         me.refresh();
       })
     };
@@ -175,6 +188,115 @@ var StlCreator = React.createClass({
 
   shouldComponentUpdate: function(){
     return false;
+  },
+
+  get3DPoints: function( points, limits ){
+    return points.map( p => new THREE.Vector3( p.x - limits.minX, p.y - limits.minY, 0) );
+  },
+
+  parseSVG: function( svg ){
+    if(!svg || !svg.querySelectorAll )
+      return [];
+
+    var rect = new THREE.Shape(),
+      smallRect = new THREE.Shape(),
+      group = new THREE.Object3D(),
+      shapes = [],
+      bindings = [],
+      limits
+    ;
+
+    Array.prototype.forEach.call( svg.querySelectorAll('path'), p => {
+      var d = p.getAttribute('d'),
+        stroke = p.getAttribute('stroke')
+      ;
+      if( !d || d.length < 2 ){
+        return;
+      }
+
+      var closed = d[ d.length - 1 ].toLowerCase() == 'z',
+        shape = pathToShape( d ),
+        bounds = shape.getBoundingBox()
+      ;
+
+      if( !limits ){
+        limits = bounds;
+      }
+      else {
+        limits.minX = Math.min( limits.minX, bounds.minX);
+        limits.minY = Math.min( limits.minY, bounds.minY);
+        limits.maxX = Math.max( limits.maxX, bounds.maxX);
+        limits.maxY = Math.max( limits.maxY, bounds.maxY);
+      }
+
+      if( stroke && stroke != '#000000' && stroke != 'black' )
+        bindings.push( shape );
+      else
+        shapes.push( shape );
+    });
+
+    var size = 12,
+      current = Math.max( limits.maxX - limits.minX, limits.maxY - limits.minY ),
+      factor = size / current,
+      height = 1 / factor ,
+      thickness = 0.07 / factor
+    ;
+
+    console.log( limits );
+
+    rect.moveTo(0, 0);
+    rect.lineTo( 0, thickness );
+    rect.lineTo( height, thickness );
+    rect.lineTo( height, 0 );
+    rect.lineTo( 0, 0 ); // closePath
+
+    smallRect.moveTo(0, 0);
+    smallRect.lineTo( 0, thickness );
+    smallRect.lineTo( height * 0.6, thickness );
+    smallRect.lineTo( height * 0.6, 0 );
+    smallRect.lineTo( 0, 0 ); // closePath
+
+    shapes.forEach( shape => {
+      var points = this.get3DPoints( shape.getPoints(130), limits ),
+        spline = closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
+      ;
+
+      console.log( spline.points.length );
+      if( spline.points.length < 2 ){
+        return;
+      }
+
+      var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
+        g = new THREE.ExtrudeGeometry( rect, extrudeSettings ),
+        m = new THREE.Mesh( g, this.material )
+      ;
+
+      group.add( m );
+    });
+
+    bindings.forEach( shape => {
+      var points = this.get3DPoints( shape.getPoints(130), limits ),
+        spline = closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
+      ;
+
+      console.log( spline.points.length );
+      if( spline.points.length < 2 ){
+        return;
+      }
+
+      var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
+        g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings ),
+        m = new THREE.Mesh( g, this.material )
+      ;
+
+      group.add( m );
+    });
+
+    group.rotation.set(Math.PI, 0, 0);
+    group.scale.set(factor, factor, factor);
+    group.position.set(-size / 2, -size / 2, 0);
+
+    return group;
   }
 });
 
