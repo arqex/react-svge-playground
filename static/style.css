@@ -20,9 +20,17 @@ body {
 	background: #fff;
 }
 
+.stlCreator{
+	margin-left: 500px;
+	padding: 10px;
+}
+
+.stlCreator div {
+	margin-bottom: 10px;
+}
+
 .three-canvas {
 	background: #ffe;
-	margin-left: 500px;
 }
 
 .three-canvas.over {

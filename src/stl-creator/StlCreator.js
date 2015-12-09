@@ -2,14 +2,24 @@ var React = require('react');
 var PropTypes = React.PropTypes;
 window.THREE = require('three');
 var pathToShape = require('./pathToShape');
+var FileSaver = require('./FileSaver');
 
+require('./STLExporter');
 require('./svgLoader');
 require('./trackballControls');
 
 var StlCreator = React.createClass({
+  getInitialState: function(){
+    return {
+      frame: 0,
+      size: 12,
+      height: 0.8,
+      thickness: 0.7
+    }
+  },
   componentWillMount: function() {
-    this.width = 300;
-    this.height = 300;
+    this.width = 400;
+    this.height = 400;
   },
   render: function() {
     var cameraProps = {
@@ -22,12 +32,59 @@ var StlCreator = React.createClass({
     }
 
     return (
+      <div className="stlCreator">
       <div className="three-canvas" ref="scene" style={{width: this.width, height: this.height}}
         onDragOver={ (e) => e.preventDefault() }
         onDrop={ this.loadFile }
         onDragEnter={ () => this.refs.scene.classList.add('over') }
         onDragLeave={ () => this.refs.scene.classList.remove() } />
+      <div className="controls">
+        <div><input type="checkbox" defaultValue={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</div>
+        <div>Tamaño: <select name="size" onChange={this.inputChange } defaultValue={ this.state.size }>
+            <option>12</option>
+            <option>15</option>
+            <option>20</option>
+          </select> cms
+        </div>
+        <div>Altura: <select name="height" onChange={this.inputChange } defaultValue={ this.state.height }>
+            <option>0.7</option>
+            <option>0.8</option>
+            <option>1</option>
+            <option>2</option>
+          </select> cms
+        </div>
+        <div>Grosor: <select name="thickness" onChange={this.inputChange } defaultValue={ this.state.thickness }>
+            <option>0.5</option>
+            <option>0.6</option>
+            <option>0.7</option>
+            <option>0.8</option>
+            <option>0.9</option>
+            <option>1.0</option>
+          </select> mms
+        </div>
+      </div>
+      <button onClick={ this.save }>Guardar</button>
+      </div>
     );
+  },
+
+  inputChange: function( e ){
+    var update = {};
+    update[ e.target.name ] = e.target.value;
+    this.setState( update );
+    setTimeout( this.refresh, 100 );
+  },
+
+  save: function(){
+    if( !this.model )
+      return;
+
+    var exporter = new THREE.STLExporter(),
+      contents = exporter.parse( this.scene ),
+      blob = new Blob([contents], {type: 'text/plain'})
+    ;
+
+    FileSaver.saveAs(blob, 'model.stl');
   },
 
   refresh: function(){
@@ -38,7 +95,7 @@ var StlCreator = React.createClass({
       var scene = new THREE.Scene();
 
       var camera = new THREE.PerspectiveCamera( 75, this.width/this.height, 0.1, 1000 );
-      camera.position.set(0, 0, 10);
+      camera.position.set(0, 0, 100);
 
       var renderer = new THREE.WebGLRenderer();
       renderer.setSize( this.height, this.width );
@@ -52,7 +109,7 @@ var StlCreator = React.createClass({
       light2.position.set( -8, -5, -10 );
       scene.add( light2 );
 
-      var grid = new THREE.GridHelper( 20, .5 );
+      var grid = new THREE.GridHelper( 220, 10 );
       grid.rotateX( Math.PI / 2 );
       scene.add( grid );
 
@@ -66,15 +123,12 @@ var StlCreator = React.createClass({
 
       this.addMouseControls();
 
-      var geometry = new THREE.BoxGeometry(3,3,3);
       var material = new THREE.MeshPhongMaterial({
         color: 0xffffaa,
         side: THREE.DoubleSide
       });
-      var cube = new THREE.Mesh(geometry, material);
 
       this.material = material;
-      this.cube = cube;
 
       //scene.add( cube );
       this.refresh();
@@ -121,65 +175,19 @@ var StlCreator = React.createClass({
     reader.onload = function(es){
       console.log( es.target.result );
 
-      loader.load( es.target.result, function( result ){
-        console.log( result );
+      loader.load( es.target.result, function( svg ){
+        var model = me.parseSVG( svg );
 
-        me.scene.add( me.parseSVG( result ) );
+        if( !model )
+          return console.log('The file doesnt seem to be a valid svg.');
+
+        if( me.model )
+          me.scene.remove( me.model );
+
+        me.scene.add( model );
+        me.model = model;
         return me.refresh();
-
-        var path = result.querySelector('path');
-        var d = path.getAttribute('d');
-        /*
-        if( d[ d.length - 1].toLowerCase() != 'z' )
-          d += 'z';
-        */
-        var shape = pathToShape( d );
-        var extrudeSettings = {
-          amount: -4,
-          bevelEnabled	: false,
-          steps: 20,
-          curveSegments: 20
-        };
-
-        var rect = new THREE.Shape();
-        rect.moveTo(0, 0);
-        rect.lineTo( 0, 3 );
-        rect.lineTo( 1, 3 );
-        rect.lineTo( 1, 0 );
-        rect.lineTo( 0, 0 ); // closePath
-
-        console.log(shape.getPoints(10).length);
-        console.log(shape.getPoints(100).length);
-        console.log(shape.getPoints(300).length);
-
-        var spline = new THREE.ClosedSplineCurve3( me.get3DPoints(shape.getPoints(100)) );
-        var cubeExtrude = {
-          steps: 400,
-          extrudePath: spline,
-          bevelEnabled: false
-        };
-
-        var points = shape.createPointsGeometry();
-        var g = new THREE.ExtrudeGeometry( shape, extrudeSettings );
-        var m = new THREE.Mesh( g, me.material );
-        var l = new THREE.Line( points, new THREE.LineBasicMaterial({ color: 0xffffaa, linewidth: 1 }))
-        var weno = new THREE.ExtrudeGeometry( rect, cubeExtrude );
-        var wenoweno = new THREE.Mesh( weno, me.material );
-
-        var group = new THREE.Object3D();
-        group.add( wenoweno );
-
-        group.rotation.set(Math.PI, 0, 0);
-        group.position.set(-1,-1,0);
-        group.scale.set(.01, .01, .1);
-        window.m = m;
-
-        l.position.set(-1,-1,0);
-        l.scale.set(.01, .01, .01);
-        l.rotation.set(Math.PI, 0, 0);
-        me.scene.add( group );
-        me.refresh();
-      })
+      });
     };
 
     reader.readAsDataURL( e.dataTransfer.files[0] );
@@ -218,6 +226,8 @@ var StlCreator = React.createClass({
         shape = pathToShape( d ),
         bounds = shape.getBoundingBox()
       ;
+
+      shape.closed = closed;
 
       if( !limits ){
         limits = bounds;
@@ -258,7 +268,7 @@ var StlCreator = React.createClass({
 
     shapes.forEach( shape => {
       var points = this.get3DPoints( shape.getPoints(130), limits ),
-        spline = closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
+        spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
 
       console.log( spline.points.length );
@@ -274,9 +284,12 @@ var StlCreator = React.createClass({
       group.add( m );
     });
 
+    if( this.state.frame )
+      bindings.push( this.getFrame( limits.minX, limits.minY, Math.max(limits.maxX, limits.maxY) ) );
+
     bindings.forEach( shape => {
-      var points = this.get3DPoints( shape.getPoints(130), limits ),
-        spline = closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
+      var points = this.get3DPoints( shape.getPoints(140), limits ),
+        spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
 
       console.log( spline.points.length );
@@ -284,7 +297,7 @@ var StlCreator = React.createClass({
         return;
       }
 
-      var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
+      var extrudeSettings = {steps: points.length * 200, extrudePath: spline, bevelEnabled: false},
         g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings ),
         m = new THREE.Mesh( g, this.material )
       ;
@@ -292,11 +305,24 @@ var StlCreator = React.createClass({
       group.add( m );
     });
 
+
+
     group.rotation.set(Math.PI, 0, 0);
-    group.scale.set(factor, factor, factor);
-    group.position.set(-size / 2, -size / 2, 0);
+    group.scale.set(factor * 10, factor * 10, factor * 10);
+    group.position.set(-size / .2, -size / .2, 0);
 
     return group;
+  },
+
+  getFrame( x, y, max ){
+    var rect = new THREE.Shape();
+    rect.moveTo(x, y);
+    rect.lineTo( x, max );
+    rect.lineTo( max, max );
+    rect.lineTo( max, y );
+    rect.lineTo( x, y ); // closePath
+    rect.closed = true;
+    return rect;
   }
 });
 
