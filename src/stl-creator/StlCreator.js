@@ -3,6 +3,7 @@ var PropTypes = React.PropTypes;
 window.THREE = require('three');
 var pathToShape = require('./pathToShape');
 var FileSaver = require('./FileSaver');
+var csg = require('./threeCSG');
 
 require('./STLExporter');
 require('./svgLoader');
@@ -50,13 +51,13 @@ var StlCreator = React.createClass({
             <option>0.7</option>
             <option>0.8</option>
             <option>1</option>
-            <option>2</option>
+            <option>1.2</option>
           </select> cms
         </div>
         <div>Grosor: <select name="thickness" onChange={this.inputChange } defaultValue={ this.state.thickness }>
             <option>0.5</option>
             <option>0.6</option>
-            <option>0.7</option>
+            <option value="0.7">0.7</option>
             <option>0.8</option>
             <option>0.9</option>
             <option>1.0</option>
@@ -71,8 +72,12 @@ var StlCreator = React.createClass({
   inputChange: function( e ){
     var update = {};
     update[ e.target.name ] = e.target.value;
-    this.setState( update );
-    setTimeout( this.refresh, 100 );
+    this.setState( update, () => {
+      if( this.model ){
+        this.renderModel();
+        this.refresh();
+      }
+    });
   },
 
   save: function(){
@@ -137,7 +142,7 @@ var StlCreator = React.createClass({
   },
 
   addMouseControls: function(){
-    var controls = new THREE.TrackballControls( this.camera );
+    var controls = new THREE.TrackballControls( this.camera, this.renderer.domElement );
 
 		controls.rotateSpeed = 3.0;
 		controls.zoomSpeed = 1.4;
@@ -176,16 +181,8 @@ var StlCreator = React.createClass({
       console.log( es.target.result );
 
       loader.load( es.target.result, function( svg ){
-        var model = me.parseSVG( svg );
-
-        if( !model )
-          return console.log('The file doesnt seem to be a valid svg.');
-
-        if( me.model )
-          me.scene.remove( me.model );
-
-        me.scene.add( model );
-        me.model = model;
+        me.parseSVG( svg );
+        me.renderModel();
         return me.refresh();
       });
     };
@@ -206,10 +203,16 @@ var StlCreator = React.createClass({
     if(!svg || !svg.querySelectorAll )
       return [];
 
-    var rect = new THREE.Shape(),
-      smallRect = new THREE.Shape(),
-      group = new THREE.Object3D(),
-      shapes = [],
+    var size = {
+      x: svg.width.baseVal.value,
+      y: svg.height.baseVal.value
+    };
+
+    this.size = size;
+
+    console.log( size );
+
+    var shapes = [],
       bindings = [],
       limits
     ;
@@ -218,6 +221,7 @@ var StlCreator = React.createClass({
       var d = p.getAttribute('d'),
         stroke = p.getAttribute('stroke')
       ;
+
       if( !d || d.length < 2 ){
         return;
       }
@@ -245,14 +249,27 @@ var StlCreator = React.createClass({
         shapes.push( shape );
     });
 
-    var size = 12,
+    this.shapes = shapes;
+    this.bindings = bindings;
+    this.limits = limits;
+    console.log( limits );
+  },
+
+  renderModel: function(){
+    var limits = this.limits,
+      size = parseInt( this.state.size ),
       current = Math.max( limits.maxX - limits.minX, limits.maxY - limits.minY ),
       factor = size / current,
-      height = 1 / factor ,
-      thickness = 0.07 / factor
+      height = parseFloat( this.state.height ) / factor ,
+      thickness = parseFloat( this.state.thickness ) * 0.1 / factor,
+      rect = new THREE.Shape(),
+      smallRect = new THREE.Shape(),
+      group = new THREE.Object3D()
     ;
 
-    console.log( limits );
+    if( this.model )
+      this.scene.remove( this.model );
+
 
     rect.moveTo(0, 0);
     rect.lineTo( 0, thickness );
@@ -266,7 +283,7 @@ var StlCreator = React.createClass({
     smallRect.lineTo( height * 0.6, 0 );
     smallRect.lineTo( 0, 0 ); // closePath
 
-    shapes.forEach( shape => {
+    this.shapes.forEach( shape => {
       var points = this.get3DPoints( shape.getPoints(130), limits ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
@@ -281,13 +298,15 @@ var StlCreator = React.createClass({
         m = new THREE.Mesh( g, this.material )
       ;
 
+      this.crop( m );
+
       group.add( m );
     });
 
-    if( this.state.frame )
+    if( false ) // this.state.frame )
       bindings.push( this.getFrame( limits.minX, limits.minY, Math.max(limits.maxX, limits.maxY) ) );
 
-    bindings.forEach( shape => {
+    this.bindings.forEach( shape => {
       var points = this.get3DPoints( shape.getPoints(140), limits ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
@@ -297,13 +316,17 @@ var StlCreator = React.createClass({
         return;
       }
 
-      var extrudeSettings = {steps: points.length * 200, extrudePath: spline, bevelEnabled: false},
+      var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
         g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings ),
         m = new THREE.Mesh( g, this.material )
       ;
 
+      m = this.crop( m );
+
       group.add( m );
     });
+
+    // group.add( this.getCube() );
 
 
 
@@ -311,7 +334,8 @@ var StlCreator = React.createClass({
     group.scale.set(factor * 10, factor * 10, factor * 10);
     group.position.set(-size / .2, -size / .2, 0);
 
-    return group;
+    this.scene.add( group );
+    this.model = group;
   },
 
   getFrame( x, y, max ){
@@ -323,6 +347,30 @@ var StlCreator = React.createClass({
     rect.lineTo( x, y ); // closePath
     rect.closed = true;
     return rect;
+  },
+
+  getCube(){
+    var g = new THREE.CubeGeometry( this.size.x + this.state.thickness*6, this.size.y + this.state.thickness*6, 60 ),
+      cube = new THREE.Mesh( g )
+    ;
+
+    cube.position.set(
+      this.size.x/2 + this.state.thickness * 2 - this.limits.minX,
+      this.size.y/2 + this.state.thickness * 2 - this.limits.minY,
+      -30
+    );
+
+    return cube;
+  },
+
+  crop( mesh ){
+    var cube = this.getCube(),
+      cubeCSG = new csg( cube ),
+      meshCSG = new csg( mesh ),
+      intersection = cubeCSG.intersect( meshCSG )
+    ;
+
+    return intersection.toMesh( this.material );
   }
 });
 
