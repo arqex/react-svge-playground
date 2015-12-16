@@ -15,7 +15,8 @@ var StlCreator = React.createClass({
       frame: 0,
       size: 12,
       height: 0.8,
-      thickness: 0.7
+      thickness: 0.7,
+      crop: false
     }
   },
   componentWillMount: function() {
@@ -40,7 +41,10 @@ var StlCreator = React.createClass({
         onDragEnter={ () => this.refs.scene.classList.add('over') }
         onDragLeave={ () => this.refs.scene.classList.remove() } />
       <div className="controls">
-        <div><input type="checkbox" defaultValue={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</div>
+        <div>
+          <label><input type="checkbox" defaultValue={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</label>
+          <label><input type="checkbox" defaultValue={ this.state.crop } name="crop" onChange={this.inputChange } /> Recortar</label>
+        </div>
         <div>Tamaño: <select name="size" onChange={this.inputChange } defaultValue={ this.state.size }>
             <option>12</option>
             <option>15</option>
@@ -283,6 +287,7 @@ var StlCreator = React.createClass({
     smallRect.lineTo( height * 0.6, 0 );
     smallRect.lineTo( 0, 0 ); // closePath
 
+    var single = new THREE.Geometry();
     this.shapes.forEach( shape => {
       var points = this.get3DPoints( shape.getPoints(130), limits ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
@@ -294,13 +299,10 @@ var StlCreator = React.createClass({
       }
 
       var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
-        g = new THREE.ExtrudeGeometry( rect, extrudeSettings ),
-        m = new THREE.Mesh( g, this.material )
+        g = new THREE.ExtrudeGeometry( rect, extrudeSettings )
       ;
 
-      this.crop( m );
-
-      group.add( m );
+      single.merge(g);
     });
 
     if( false ) // this.state.frame )
@@ -317,25 +319,31 @@ var StlCreator = React.createClass({
       }
 
       var extrudeSettings = {steps: points.length, extrudePath: spline, bevelEnabled: false},
-        g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings ),
-        m = new THREE.Mesh( g, this.material )
+        g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings )
       ;
 
-      m = this.crop( m );
-
-      group.add( m );
+      single.merge(g);
     });
 
     // group.add( this.getCube() );
 
 
 
-    group.rotation.set(Math.PI, 0, 0);
-    group.scale.set(factor * 10, factor * 10, factor * 10);
-    group.position.set(-size / .2, -size / .2, 0);
 
-    this.scene.add( group );
-    this.model = group;
+
+    // this.scene.add( group );
+
+    single.mergeVertices();
+    single = new THREE.Mesh( single, this.material );
+    single = this.crop( single );
+
+    single.rotation.set(Math.PI, 0, 0);
+    single.scale.set(factor * 10, factor * 10, factor * 10);
+    single.position.set(-size / .2, -size / .2, 0);
+
+    this.scene.add( single );
+
+    this.model = single;
   },
 
   getFrame( x, y, max ){
@@ -367,9 +375,10 @@ var StlCreator = React.createClass({
     var cube = this.getCube(),
       cubeCSG = new csg( cube ),
       meshCSG = new csg( mesh ),
-      intersection = cubeCSG.intersect( meshCSG )
+      intersection = meshCSG.intersect( cubeCSG )
     ;
 
+    console.log( 'crop' );
     return intersection.toMesh( this.material );
   }
 });
