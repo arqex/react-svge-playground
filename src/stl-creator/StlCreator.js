@@ -12,11 +12,11 @@ require('./trackballControls');
 var StlCreator = React.createClass({
   getInitialState: function(){
     return {
-      frame: 0,
+      frame: true,
       size: 12,
       height: 0.8,
       thickness: 0.7,
-      crop: false
+      crop: true
     }
   },
   componentWillMount: function() {
@@ -42,8 +42,8 @@ var StlCreator = React.createClass({
         onDragLeave={ () => this.refs.scene.classList.remove() } />
       <div className="controls">
         <div>
-          <label><input type="checkbox" defaultValue={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</label>
-          <label><input type="checkbox" defaultValue={ this.state.crop } name="crop" onChange={this.inputChange } /> Recortar</label>
+          <label><input type="checkbox" defaultChecked={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</label>
+          <label><input type="checkbox" defaultChecked={ this.state.crop } name="crop" onChange={this.inputChange } /> Recortar</label>
         </div>
         <div>Tamaño: <select name="size" onChange={this.inputChange } defaultValue={ this.state.size }>
             <option>12</option>
@@ -75,7 +75,7 @@ var StlCreator = React.createClass({
 
   inputChange: function( e ){
     var update = {};
-    update[ e.target.name ] = e.target.value;
+    update[ e.target.name ] = e.target.type == 'checkbox' ? e.target.checked : e.target.value;
     this.setState( update, () => {
       if( this.model ){
         this.renderModel();
@@ -200,7 +200,7 @@ var StlCreator = React.createClass({
   },
 
   get3DPoints: function( points, limits ){
-    return points.map( p => new THREE.Vector3( p.x - limits.minX, p.y - limits.minY, 0) );
+    return points.map( p => new THREE.Vector3( p.x, p.y, 0) );
   },
 
   parseSVG: function( svg ){
@@ -262,7 +262,7 @@ var StlCreator = React.createClass({
   renderModel: function(){
     var limits = this.limits,
       size = parseInt( this.state.size ),
-      current = Math.max( limits.maxX - limits.minX, limits.maxY - limits.minY ),
+      current = Math.max( this.size.x, this.size.y ),
       factor = size / current,
       height = parseFloat( this.state.height ) / factor ,
       thickness = parseFloat( this.state.thickness ) * 0.1 / factor,
@@ -274,17 +274,16 @@ var StlCreator = React.createClass({
     if( this.model )
       this.scene.remove( this.model );
 
-
     rect.moveTo(0, 0);
     rect.lineTo( 0, thickness );
-    rect.lineTo( height, thickness );
-    rect.lineTo( height, 0 );
+    rect.lineTo( -height, thickness );
+    rect.lineTo( -height, 0 );
     rect.lineTo( 0, 0 ); // closePath
 
     smallRect.moveTo(0, 0);
     smallRect.lineTo( 0, thickness );
-    smallRect.lineTo( height * 0.6, thickness );
-    smallRect.lineTo( height * 0.6, 0 );
+    smallRect.lineTo( -height * 0.6, thickness );
+    smallRect.lineTo( -height * 0.6, 0 );
     smallRect.lineTo( 0, 0 ); // closePath
 
     var single = new THREE.Geometry();
@@ -325,61 +324,85 @@ var StlCreator = React.createClass({
       single.merge(g);
     });
 
-    // group.add( this.getCube() );
-
-
-
-
-
-    // this.scene.add( group );
-
+    console.log( 'merge' );
     single.mergeVertices();
+    console.log( 'merged' );
+
+
+    console.log( 'mesh' );
     single = new THREE.Mesh( single, this.material );
-    single = this.crop( single );
+    console.log( 'meshed' );
 
-    single.rotation.set(Math.PI, 0, 0);
-    single.scale.set(factor * 10, factor * 10, factor * 10);
-    single.position.set(-size / .2, -size / .2, 0);
+    if( this.state.crop )
+      single = this.crop( single, height );
 
-    this.scene.add( single );
+    console.log( 'add' );
+    group.add( single );
+    console.log( 'added' );
 
-    this.model = single;
+    if( this.state.frame )
+      group.add( this.getFrame( height, thickness ) );
+    // group.add( this.getCube( height ) );
+
+    console.log( 'transform' );
+    // group.rotation.set(Math.PI, 0, 0);
+    group.scale.set(factor * 10, factor * 10, factor * 10);
+    // group.position.set(-size / .2, -size / .2, 0);
+    console.log( 'transformed' );
+
+
+    //this.scene.add( this.getFrame(height, thickness) );
+
+    this.scene.add( group );
+
+    this.model = group;
   },
 
-  getFrame( x, y, max ){
-    var rect = new THREE.Shape();
-    rect.moveTo(x, y);
-    rect.lineTo( x, max );
-    rect.lineTo( max, max );
-    rect.lineTo( max, y );
-    rect.lineTo( x, y ); // closePath
-    rect.closed = true;
-    return rect;
+  getFrame( height, thickness ){
+    var h = height * 0.6,
+      frame = new THREE.CubeGeometry( this.size.x, this.size.y, h ),
+      sub = new THREE.CubeGeometry( this.size.x - (2 * thickness), this.size.y - (2 * thickness), h )
+    ;
+
+    frame = new THREE.Mesh( frame );
+    sub = new THREE.Mesh( sub );
+
+    frame.position.set( this.size.x / 2, this.size.y / 2, (h/2) );
+    sub.position.set( this.size.x / 2, this.size.y / 2, (h/2) );
+
+    var frameCSG = new csg( frame );
+
+    frame = frameCSG.subtract( new csg( sub ) );
+
+    return frame.toMesh( new THREE.MeshPhongMaterial({
+      color: 0xff0000,
+      side: THREE.DoubleSide
+    }));
   },
 
-  getCube(){
-    var g = new THREE.CubeGeometry( this.size.x + this.state.thickness*6, this.size.y + this.state.thickness*6, 60 ),
+  getCube( height ){
+    var g = new THREE.CubeGeometry( this.size.x, this.size.y, height ),
       cube = new THREE.Mesh( g )
     ;
 
-    cube.position.set(
-      this.size.x/2 + this.state.thickness * 2 - this.limits.minX,
-      this.size.y/2 + this.state.thickness * 2 - this.limits.minY,
-      -30
-    );
+    cube.position.set(this.size.x / 2, this.size.y / 2, height / 2 );
 
     return cube;
   },
 
-  crop( mesh ){
-    var cube = this.getCube(),
+  crop( mesh, height ){
+    var cube = this.getCube( height ),
       cubeCSG = new csg( cube ),
       meshCSG = new csg( mesh ),
-      intersection = meshCSG.intersect( cubeCSG )
+      intersection
     ;
 
     console.log( 'crop' );
-    return intersection.toMesh( this.material );
+    intersection = meshCSG.intersect( cubeCSG );
+    intersection = intersection.toMesh( this.material );
+    console.log( 'cropped' );
+
+    return intersection;
   }
 });
 
