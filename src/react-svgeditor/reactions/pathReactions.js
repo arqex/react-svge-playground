@@ -32,7 +32,7 @@ module.exports = function( freezer ){
 
     data = freezer.get();
     ids[utils.last(path.points).id] = 1;
-    data.selected.set( path.id, utils.selectPoints( data.dataElements[0], ids ));
+    data.selected[path.id].set({points: utils.selectPoints( data.dataElements[0], ids )});
   });
 
   freezer.on( 'closePath', function(){
@@ -42,8 +42,8 @@ module.exports = function( freezer ){
     utils.last(path.points).set({x: 'end', temp: false});
 
     data = freezer.get();
-    data.canvas.elements.set( data.canvas.elements.length -1, data.dataElements[0].toJS() );
-    data.selected[ path.id ].set({ points:{} });
+    data.canvas.elements.set( data.canvas.elements.length -1, data.dataElements[0] );
+    freezer.get().selected.set( path.id, {points:{}, path: data.dataElements[0], type: 'path'} );
   });
 };
 
