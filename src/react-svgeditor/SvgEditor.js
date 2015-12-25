@@ -33,7 +33,7 @@ var SvgEditor = React.createClass({
 		;
 
 		return (
-			<div className="svgCanvas" style={{position:'relative'}} onDragOver={ (e) => e.preventDefault() }
+			<div className="svgCanvas unselectable" unselectable style={{position:'relative'}} onDragOver={ (e) => e.preventDefault() }
 			onDrop={ this.loadFile }>
 				<SvgCanvas canvas={ state.canvas } hub={ this.state }  />
 				<C ref="mode" data={ state } hub={ this.state } />

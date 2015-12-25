@@ -7,11 +7,12 @@ module.exports = {
   hit: function( stack, pos, keys ){
     var path = stack[0],
       selection = { type: 'path', points: {}, path: path },
-      data = freezer.get()
+      data = freezer.get(),
+      isSelected = data.selected[ path.id ]
     ;
 
     //If the path is already selected, return
-    if( data.selected[ path.id ] ) return;
+    if( isSelected && isSelected.type == 'path' ) return;
 
     if( !keys.shift ){
       var selected = {};

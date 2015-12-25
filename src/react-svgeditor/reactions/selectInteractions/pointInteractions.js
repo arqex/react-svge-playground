@@ -14,7 +14,7 @@ module.exports = {
     ;
 
     // If the point is already selected, return
-    if( selected[ path.id ] && selected[ path.id ].points[ stack[0].id ] == 'selected' ){
+    if( (selection = selected[ path.id ]) && selection.type == 'point' && selection.points[ stack[0].id ] == 'selected' ){
       return;
     }
 
@@ -68,7 +68,7 @@ module.exports = {
     // repositioned to leave them in the initial place.
     element.path.points.forEach( function( p ){
       if( element.points[ p.id ] == 'selected' ){
-        
+
         // If the point was going to be a following one
         // don't modify it and it will be moved with the previous one
         if( !searchingFollowing ){

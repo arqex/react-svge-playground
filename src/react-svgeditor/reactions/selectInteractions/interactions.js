@@ -10,7 +10,8 @@ module.exports = {
     freezer = f;
     interactions = {
       path: require('./pathInteractions').init( f ),
-      point: require('./pointInteractions').init( f )
+      point: require('./pointInteractions').init( f ),
+      bender: require('./benderInteractions').init( f )
     };
   },
   get: function( type ){
