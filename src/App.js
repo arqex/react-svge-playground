@@ -1,7 +1,7 @@
 import React from 'react';
 import SvgEditor from './react-svgeditor/SvgEditor';
 import ToolBar from './react-svgeditor/components/ToolBar';
-import StlCreator from './stl-creator/StlCreator';
+//import StlCreator from './stl-creator/StlCreator';
 
 var App = React.createClass({
 	getInitialState: function() {
@@ -11,11 +11,12 @@ var App = React.createClass({
 	},
 	render: function(){
 		var mode = this.state.mode;
+		// add to activate 3D
+		// <StlCreator />
 		return (
 			<div>
 				<ToolBar mode={ mode } onSelectMode={ this.onModeChange } />
 				<SvgEditor mode={ mode } />
-				<StlCreator />
 			</div>
 		);
 	},

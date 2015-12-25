@@ -24,7 +24,9 @@ var SelectMode = React.createClass({
 		);
 	},
 
-	onHit: function( stack, keys ){
+	onHit: function( stack, pos, keys ){
+		return this.props.hub.trigger('select:hit', stack, pos, keys );
+
 		var current = this.props.data.selected,
 			selected, selection
 		;
@@ -70,6 +72,10 @@ var SelectMode = React.createClass({
 	},
 
 	onMoveStart: function( stack, pos, keys ){
+		// this.onHit( stack, keys );
+		this.props.hub.trigger('select:hit', stack, pos, keys );
+		return this.props.hub.trigger('moveStart', stack, pos, keys);
+
 		var data = this.onHit( stack, keys ),
 			elements = Object.keys( data.selected ),
 			moving = {}
@@ -148,7 +154,8 @@ var SelectMode = React.createClass({
 		});
 	},
 
-	onMoveEnd: function(){
+	onMoveEnd: function( e ){
+		return this.props.hub.trigger('moveEnd', e);
 		this.props.data.remove('moving');
 	}
 });

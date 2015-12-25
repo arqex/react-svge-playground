@@ -91,8 +91,6 @@ var DataCanvas = React.createClass({
  			this.props.onMoveEnd( this.getSelectStack( e.target ), pos, this.state.keys );
  		}
 
-		console.log( this.state.keys );
-
  		this.setState({clicking: false, moving: false, keys: false});
 	},
 	getSelectStack: function( el ){

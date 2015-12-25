@@ -1,4 +1,7 @@
 var freezer;
+
+/* TODO: This is a copy of pathInteraction */
+
 module.exports = {
   init: function( f ){
     freezer = f;

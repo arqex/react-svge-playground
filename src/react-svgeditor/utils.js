@@ -64,6 +64,6 @@ module.exports = {
 			if( points[i].id == id )
 				return points[i+1];
 			i++;
-		}		
+		}
 	}
 };

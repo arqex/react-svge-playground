@@ -16,7 +16,8 @@ var StlCreator = React.createClass({
       size: 12,
       height: 0.8,
       thickness: 0.7,
-      crop: true
+      crop: true,
+      progress: 0
     }
   },
   componentWillMount: function() {
@@ -24,22 +25,21 @@ var StlCreator = React.createClass({
     this.height = 400;
   },
   render: function() {
-    var cameraProps = {
-      fov: 75,
-      aspect: 1,
-      near: 1,
-      far: 5000,
-      position: new THREE.Vector3(0,0,600),
-      lookat: new THREE.Vector3(0,0,0)
+    var className = 'stlCreator';
+    if( this.state.progress ){
+      className += ' loading';
     }
 
     return (
-      <div className="stlCreator">
+      <div className={className}>
       <div className="three-canvas" ref="scene" style={{width: this.width, height: this.height}}
         onDragOver={ (e) => e.preventDefault() }
         onDrop={ this.loadFile }
         onDragEnter={ () => this.refs.scene.classList.add('over') }
         onDragLeave={ () => this.refs.scene.classList.remove() } />
+      <div className="progress" style={{width: this.width}}>
+        <div className="bar" style={{ height: 5, width: this.state.progress + '%' }} />
+      </div>
       <div className="controls">
         <div>
           <label><input type="checkbox" defaultChecked={ this.state.frame } name="frame" onChange={this.inputChange } /> Añadir marco</label>
@@ -98,6 +98,7 @@ var StlCreator = React.createClass({
 
   refresh: function(){
     this.renderer.render(this.scene, this.camera);
+    this.setState({progress: 0});
   },
 
   componentDidMount: function(){
@@ -138,6 +139,10 @@ var StlCreator = React.createClass({
       });
 
       this.material = material;
+      this.bindingMaterial = new THREE.MeshPhongMaterial({
+        color: 0xff0000,
+        side: THREE.DoubleSide
+      });
 
       //scene.add( cube );
       this.refresh();
@@ -263,7 +268,7 @@ var StlCreator = React.createClass({
     var limits = this.limits,
       size = parseInt( this.state.size ),
       current = Math.max( this.size.x, this.size.y ),
-      factor = size / current,
+      factor = size / (current + 1), // this + 1 will make the template slightly smaller to fit
       height = parseFloat( this.state.height ) / factor ,
       thickness = parseFloat( this.state.thickness ) * 0.1 / factor,
       rect = new THREE.Shape(),
@@ -286,9 +291,12 @@ var StlCreator = React.createClass({
     smallRect.lineTo( -height * 0.6, 0 );
     smallRect.lineTo( 0, 0 ); // closePath
 
-    var single = new THREE.Geometry();
+    var model = new THREE.Geometry(),
+      bindings = new THREE.Geometry()
+    ;
+
     this.shapes.forEach( shape => {
-      var points = this.get3DPoints( shape.getPoints(130), limits ),
+      var points = this.get3DPoints( shape.getPoints(140), limits ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
 
@@ -301,11 +309,10 @@ var StlCreator = React.createClass({
         g = new THREE.ExtrudeGeometry( rect, extrudeSettings )
       ;
 
-      single.merge(g);
-    });
+      this.addProgress('path');
 
-    if( false ) // this.state.frame )
-      bindings.push( this.getFrame( limits.minX, limits.minY, Math.max(limits.maxX, limits.maxY) ) );
+      model.merge(g);
+    });
 
     this.bindings.forEach( shape => {
       var points = this.get3DPoints( shape.getPoints(140), limits ),
@@ -321,28 +328,40 @@ var StlCreator = React.createClass({
         g = new THREE.ExtrudeGeometry( smallRect, extrudeSettings )
       ;
 
-      single.merge(g);
+      this.addProgress('path');
+
+      bindings.merge(g);
     });
 
     console.log( 'merge' );
-    single.mergeVertices();
+    model.mergeVertices();
+    bindings.mergeVertices();
     console.log( 'merged' );
 
 
     console.log( 'mesh' );
-    single = new THREE.Mesh( single, this.material );
+    bindings = new THREE.Mesh( bindings, this.bindingMaterial );
+    model = new THREE.Mesh( model, this.material );
     console.log( 'meshed' );
 
-    if( this.state.crop )
-      single = this.crop( single, height );
+    if( this.state.crop ){
+      // single = this.crop( single, height );
+      if( this.bindings.length )
+        bindings = this.crop( bindings, height, true );
+
+      model = this.crop( model, height, true );
+    }
 
     console.log( 'add' );
-    group.add( single );
+    group.add( model );
+    group.add( bindings );
     console.log( 'added' );
 
     if( this.state.frame )
       group.add( this.getFrame( height, thickness ) );
     // group.add( this.getCube( height ) );
+    //
+    // group.add( this.getCropFrame( height ) );
 
     console.log( 'transform' );
     // group.rotation.set(Math.PI, 0, 0);
@@ -356,6 +375,28 @@ var StlCreator = React.createClass({
     this.scene.add( group );
 
     this.model = group;
+  },
+
+  addProgress( type ){
+    var current = this.state.progress,
+      increment
+    ;
+
+    if( type == 'path' ){
+      increment = 50 / (this.shapes.length + this.bindings.length);
+    }
+    else if( type == 'cropped' ){
+      increment = 25;
+    }
+    else if( type == 'merge' ){
+      increment = this.state.crop ? 12.5 : 25;
+    }
+    else if( type == 'transform' ){
+      increment = this.state.crop ? 12.5 : 25;
+    }
+
+    this.setState( {progress: current + increment} );
+
   },
 
   getFrame( height, thickness ){
@@ -374,10 +415,21 @@ var StlCreator = React.createClass({
 
     frame = frameCSG.subtract( new csg( sub ) );
 
-    return frame.toMesh( new THREE.MeshPhongMaterial({
-      color: 0xff0000,
-      side: THREE.DoubleSide
-    }));
+    return frame.toMesh( this.bindingMaterial );
+  },
+
+
+  getCropFrame( height ){
+    var frame = new THREE.CubeGeometry( this.size.x * 2, this.size.y * 2, height * 2 ),
+      sub = new THREE.CubeGeometry( this.size.x, this.size.y, height * 2 )
+    ;
+
+    frame = new csg( frame );
+    frame = frame.subtract( new csg( sub ) );
+    frame = frame.toMesh();
+
+    frame.position.set( this.size.x / 2, this.size.y / 2, height );
+    return frame;
   },
 
   getCube( height ){
@@ -390,19 +442,22 @@ var StlCreator = React.createClass({
     return cube;
   },
 
-  crop( mesh, height ){
-    var cube = this.getCube( height ),
+  crop( mesh, height, intersect ){
+    var cube = intersect ? this.getCube( height ) : this.getCropFrame( height ),
       cubeCSG = new csg( cube ),
       meshCSG = new csg( mesh ),
       intersection
     ;
 
     console.log( 'crop' );
-    intersection = meshCSG.intersect( cubeCSG );
+    intersection = intersect ? meshCSG.intersect( cubeCSG ) : meshCSG.subtract( cubeCSG );
     intersection = intersection.toMesh( this.material );
     console.log( 'cropped' );
 
     return intersection;
+  },
+
+  crop2( mesh, height ){
   }
 });
 
