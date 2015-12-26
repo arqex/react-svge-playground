@@ -35,7 +35,8 @@ module.exports = {
 			bender: stack[0],
 			selectedOriginPoint: {x: stack[0].x, y: stack[0].y},
 			moveOrigin: pos,
-			point: stack[1]
+			point: stack[1],
+      orthogonal: keys.shift
     };
 
     if( stack[1].lockedBenders && !keys.alt ){
@@ -45,17 +46,42 @@ module.exports = {
     return moving;
   },
   move: function( element, pos ){
-    var newPos = {
+    var newPos, point, v, quadrant;
+
+    newPos = {
       x: element.selectedOriginPoint.x + pos.x - element.moveOrigin.x,
       y: element.selectedOriginPoint.y + pos.y - element.moveOrigin.y
-    }, point;
+    };
+
+    if( element.orthogonal ){
+      v = victor.fromObject( newPos );
+
+      var angle = v.angle(),
+        sign = angle < 0 ? -1 : 1,
+        selected = 0,
+        pi = Math.PI,
+        target = pi / 4,
+        min = Math.abs( angle ),
+        candidate
+      ;
+
+      // Check the angle that minimize the difference
+      while( (candidate = Math.abs(Math.abs( angle ) - target )) < min ){
+        min = candidate;
+        selected = target;
+        target += (pi / 4);
+      }
+
+      v.rotateTo( sign * selected );
+      newPos = v.toObject();
+    }
 
     element.bender.set( newPos );
 
     if( element.opposite ){
-      var v = victor.fromObject( newPos ),
-        opposite = victor.fromObject( element.opposite )
-      ;
+      var opposite = victor.fromObject( element.opposite );
+
+      v = victor.fromObject( newPos );
 
       opposite.rotateTo( v.invert().angle() );
 
