@@ -35,6 +35,14 @@ var DataCanvas = React.createClass({
 			return <DataCanvasPath path={ el } modifiers={ this.props.selected[ el.id ] } key={ el.id } />
 		return '';
 	},
+	getKeys: function( e ){
+		return {
+			shift: e.shiftKey,
+			ctrl: e.ctrlKey,
+			meta: e.metaKey,
+			alt: e.altKey
+		};
+	},
 	onClickStart: function( e ){
 		if( this.state.moving || this.state.clicking )
 			return;
@@ -43,24 +51,19 @@ var DataCanvas = React.createClass({
 
 		this.setState({
 			clicking: {x: e.canvasX, y: e.canvasY},
-			stack: this.getSelectStack( e.target ),
-			keys: {
-				shift: e.shiftKey,
-				ctrl: e.ctrlKey,
-				meta: e.metaKey,
-				alt: e.altKey
-			}
+			stack: this.getSelectStack( e.target )
 		});
 	},
 	onMove: function( e ){
 		if( !this.ticking ){
+			var keys = this.getKeys(e);
 			this.ticking = true;
 			requestAnimationFrame( this.stopTicking );
 
 			this.setEventCoords( e );
 
 			if( this.state.moving ){
-				return this.props.onMove( e );
+				return this.props.onMove( e, keys );
 			}
 			var clicking = this.state.clicking;
 			if( clicking && (
@@ -69,11 +72,11 @@ var DataCanvas = React.createClass({
 				clicking.y > e.canvasY + 5 ||
 				clicking.y < e.canvasY - 5 )){
 					this.setState({clicking: false, moving: true })
-					this.props.onMoveStart( this.state.stack, clicking, this.state.keys );
-					this.props.onWander( e );
+					this.props.onMoveStart( this.state.stack, clicking, keys );
+					this.props.onWander( e, keys );
 			}
 			else {
-				return this.props.onWander( e );
+				return this.props.onWander( e, keys );
 			}
 		}
 	},
@@ -83,15 +86,17 @@ var DataCanvas = React.createClass({
 	onClickEnd: function( e ){
 		this.setEventCoords( e );
 
-		var pos = {x: e.canvasX, y: e.canvasY};
+		var pos = {x: e.canvasX, y: e.canvasY},
+			keys = this.getKeys(e)
+		;
 		if( this.state.clicking ){
- 			this.props.onHit( this.state.stack, pos, this.state.keys );
+ 			this.props.onHit( this.state.stack, pos, keys );
  		}
  		else if( this.state.moving ){
- 			this.props.onMoveEnd( this.getSelectStack( e.target ), pos, this.state.keys );
+ 			this.props.onMoveEnd( this.getSelectStack( e.target ), pos, keys );
  		}
 
- 		this.setState({clicking: false, moving: false, keys: false});
+ 		this.setState({clicking: false, moving: false});
 	},
 	getSelectStack: function( el ){
 		var stack = [],

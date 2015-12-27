@@ -37,7 +37,7 @@ module.exports = function( freezer ){
     data.set({moving: moving});
   });
 
-  freezer.on( 'select:move', function( e ){
+  freezer.on( 'select:move', function( e, keys ){
     var data = freezer.get(),
       elements = Object.keys( data.moving ),
       pos = {x: e.canvasX, y: e.canvasY }
@@ -51,7 +51,7 @@ module.exports = function( freezer ){
 
       if( !typeInteractions || !typeInteractions.move ) return;
 
-      return typeInteractions.move( element, pos );
+      return typeInteractions.move( element, pos, keys );
 		});
   });
   freezer.on( 'select:moveEnd', function( e ){

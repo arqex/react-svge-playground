@@ -29,16 +29,15 @@ var SelectMode = React.createClass({
 	},
 
 	onMoveStart: function( stack, pos, keys ){
-		// this.onHit( stack, keys );
 		this.props.hub.trigger('select:hit', stack, pos, keys );
 		this.props.hub.trigger('select:moveStart', stack, pos, keys);
 	},
 
-	onMove: function( e ){
+	onMove: function( e, keys ){
 		if( !this.props.data.moving )
 			return;
 
-		this.props.hub.trigger('select:move', e );
+		this.props.hub.trigger('select:move', e, keys );
 	},
 
 	onMoveEnd: function( e ){
