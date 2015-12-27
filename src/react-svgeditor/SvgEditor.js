@@ -4,7 +4,8 @@ var React = require('react'),
 	PathMode = require('./components/modes/PathMode'),
 	SelectMode = require('./components/modes/SelectMode'),
 	pathReactions = require('./reactions/pathReactions'),
-	selectReactions = require('./reactions/selectReactions')
+	selectReactions = require('./reactions/selectReactions'),
+	kb = require('keyboardjs')
 ;
 
 var SvgEditor = React.createClass({
@@ -33,10 +34,12 @@ var SvgEditor = React.createClass({
 		;
 
 		return (
-			<div className="svgCanvas unselectable" unselectable style={{position:'relative'}} onDragOver={ (e) => e.preventDefault() }
-			onDrop={ this.loadFile }>
-				<SvgCanvas canvas={ state.canvas } hub={ this.state }  />
-				<C ref="mode" data={ state } hub={ this.state } />
+			<div className="svgCanvas unselectable"
+				unselectable style={{position:'relative', height: this.state.get().canvas.height}}
+				onDragOver={ (e) => e.preventDefault() }
+				onDrop={ this.loadFile }>
+					<SvgCanvas canvas={ state.canvas } hub={ this.state }  />
+					<C ref="mode" data={ state } hub={ this.state } />
 			</div>
 		)
 	},
