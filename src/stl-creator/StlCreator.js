@@ -144,6 +144,11 @@ var StlCreator = React.createClass({
         side: THREE.DoubleSide
       });
 
+      this.cylinderMaterial = new THREE.MeshPhongMaterial({
+        color: 0x0000ff,
+        side: THREE.DoubleSide
+      });
+
       //scene.add( cube );
       this.refresh();
 
@@ -204,8 +209,8 @@ var StlCreator = React.createClass({
     return false;
   },
 
-  get3DPoints: function( points, limits ){
-    return points.map( p => new THREE.Vector3( p.x, p.y, 0) );
+  get3DPoints: function( points, height ){
+    return points.map( p => new THREE.Vector3( p.x, p.y, height / 2) );
   },
 
   parseSVG: function( svg ){
@@ -223,12 +228,14 @@ var StlCreator = React.createClass({
 
     var shapes = [],
       bindings = [],
+      points = [],
       limits
     ;
 
     Array.prototype.forEach.call( svg.querySelectorAll('path'), p => {
       var d = p.getAttribute('d'),
-        stroke = p.getAttribute('stroke')
+        stroke = p.getAttribute('stroke'),
+        isBinding = stroke && stroke != '#000000' && stroke != 'black'
       ;
 
       if( !d || d.length < 2 ){
@@ -237,8 +244,14 @@ var StlCreator = React.createClass({
 
       var closed = d[ d.length - 1 ].toLowerCase() == 'z',
         shape = pathToShape( d ),
-        bounds = shape.getBoundingBox()
+        bounds = shape.getBoundingBox(),
+        nextPoints = this.calculateCornerPoints( d, isBinding ),
+        last = {x: 0, y: 0}
       ;
+
+      console.log( 'Next points', nextPoints );
+
+      points = points.concat( nextPoints );
 
       shape.closed = closed;
 
@@ -252,12 +265,14 @@ var StlCreator = React.createClass({
         limits.maxY = Math.max( limits.maxY, bounds.maxY);
       }
 
-      if( stroke && stroke != '#000000' && stroke != 'black' )
+      if( isBinding )
         bindings.push( shape );
       else
         shapes.push( shape );
     });
 
+    console.log( 'Corner points', points );
+    this.points = points;
     this.shapes = shapes;
     this.bindings = bindings;
     this.limits = limits;
@@ -271,32 +286,22 @@ var StlCreator = React.createClass({
       factor = size / (current + 1), // this + 1 will make the template slightly smaller to fit
       height = parseFloat( this.state.height ) / factor ,
       thickness = parseFloat( this.state.thickness ) * 0.1 / factor,
-      rect = new THREE.Shape(),
-      smallRect = new THREE.Shape(),
+      rect = this.createRect( thickness, height),
+      bindingFactor = 0.6,
+      smallRect = this.createRect( thickness, height * bindingFactor ),
       group = new THREE.Object3D()
     ;
 
     if( this.model )
       this.scene.remove( this.model );
 
-    rect.moveTo(0, 0);
-    rect.lineTo( 0, thickness );
-    rect.lineTo( -height, thickness );
-    rect.lineTo( -height, 0 );
-    rect.lineTo( 0, 0 ); // closePath
-
-    smallRect.moveTo(0, 0);
-    smallRect.lineTo( 0, thickness );
-    smallRect.lineTo( -height * 0.6, thickness );
-    smallRect.lineTo( -height * 0.6, 0 );
-    smallRect.lineTo( 0, 0 ); // closePath
-
     var model = new THREE.Geometry(),
-      bindings = new THREE.Geometry()
+      bindings = new THREE.Geometry(),
+      cylinders = new THREE.Geometry()
     ;
 
     this.shapes.forEach( shape => {
-      var points = this.get3DPoints( shape.getPoints(140), limits ),
+      var points = this.get3DPoints( shape.getPoints(50), height ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
 
@@ -315,7 +320,7 @@ var StlCreator = React.createClass({
     });
 
     this.bindings.forEach( shape => {
-      var points = this.get3DPoints( shape.getPoints(140), limits ),
+      var points = this.get3DPoints( shape.getPoints(50), height * bindingFactor ),
         spline = shape.closed ? new THREE.ClosedSplineCurve3( points ) : new THREE.CatmullRomCurve3( points )
       ;
 
@@ -333,15 +338,35 @@ var StlCreator = React.createClass({
       bindings.merge(g);
     });
 
+    var radius = thickness / 2,
+      min = 0 + radius,
+      maxX = this.size.x - radius,
+      maxY = this.size.y - radius
+    ;
+
+    this.points.forEach( p => {
+      if( p.x < min || p.y < min || p.x > maxX || p.y > maxY )
+        return;
+
+      var h = p.isBinding ? height * bindingFactor : height,
+        c = new THREE.CylinderGeometry(radius, radius, h )
+      ;
+
+      c.rotateX( Math.PI / 2 );
+      c.translate( p.x, p.y, h/2);
+      cylinders.merge( c );
+    })
+
     console.log( 'merge' );
     model.mergeVertices();
     bindings.mergeVertices();
     console.log( 'merged' );
 
-
     console.log( 'mesh' );
     bindings = new THREE.Mesh( bindings, this.bindingMaterial );
     model = new THREE.Mesh( model, this.material );
+    cylinders = new THREE.Mesh( cylinders, this.cylinderMaterial );
+
     console.log( 'meshed' );
 
     if( this.state.crop ){
@@ -349,12 +374,14 @@ var StlCreator = React.createClass({
       if( this.bindings.length )
         bindings = this.crop( bindings, height, true );
 
-      model = this.crop( model, height, true );
+      model = this.crop( model, height );
+      // cylinders = this.crop( cylinders, height, true );
     }
 
     console.log( 'add' );
     group.add( model );
     group.add( bindings );
+    group.add( cylinders );
     console.log( 'added' );
 
     if( this.state.frame )
@@ -375,6 +402,21 @@ var StlCreator = React.createClass({
     this.scene.add( group );
 
     this.model = group;
+  },
+
+  createRect( width, height ){
+    var rect = new THREE.Shape(),
+      halfWidth = width / 2,
+      halfHeight = height / 2
+    ;
+
+    rect.moveTo( halfHeight, -halfWidth );
+    rect.lineTo( halfHeight, halfWidth );
+    rect.lineTo( -halfHeight, halfWidth );
+    rect.lineTo( -halfHeight, -halfWidth );
+    rect.lineTo( halfHeight, -halfWidth ); // closePath
+
+    return rect;
   },
 
   addProgress( type ){
@@ -457,7 +499,116 @@ var StlCreator = React.createClass({
     return intersection;
   },
 
-  crop2( mesh, height ){
+  calculateCornerPoints( d, isBinding ){
+    console.log( d );
+    var x = 0, y = 0,
+      points = []
+    ;
+
+    d.match(/[mclvhqaz][\d\s,.\-]+/ig).forEach( path => {
+      var parts = path.trim().match(/-?[\d\.]+|[a-z]+/ig),
+        last = points[points.length-1],
+        move, bender, p
+      ;
+
+      console.log('Parts', parts);
+
+      for (var i = 1; i < parts.length; i++) {
+        parts[i] = parseFloat( parts[i] );
+      }
+
+      switch( parts[0] ){
+        case 'm':
+          points.push({x: x + parts[1], y: y + parts[2]});
+          move = {x: x + parts[1], y: y + parts[2] };
+          break;
+        case 'M':
+          points.push({x: parts[1], y: parts[2]});
+          move = {x: parts[1], y: parts[2] };
+          break;
+        case 'l':
+          points.push({ x: parts[1], y: parts[2] });
+          move = {x: x + parts[1], y: y + parts[2] };
+          break;
+        case 'L':
+          points.push({ x: parts[1] - x , y: parts[2] - y });
+          move = {x: parts[1] - x, y: parts[2] - y};
+          break;
+        case 'h':
+          points.push({ x: parts[1], y: 0 });
+          move = {x: parts[1], y: 0};
+          break;
+        case 'H':
+          points.push({ x: parts[1] - x, y: 0});
+          move = {x: parts[1] - x, y: 0};
+          break;
+        case 'v':
+          points.push({ x: 0, y: parts[1] });
+          move = {x: 0, y: parts[1] };
+        case 'V':
+          points.push({x: 0, y: parts[1] - y});
+          move = {x:0, y: parts[1] - y};
+          break;
+        case 'H':
+          points.push({ x: 0, y: parts[1] - y});
+          move = { x: 0, y: parts[1] - y };
+          break;
+        case 'c':
+          p = { x: parts[5], y: parts[6], benders:[{x: parts[3], y: parts[4]}, {x: 0, y: 0}] };
+          p.angle = parts[3] / parts[4];
+          points.push( p );
+          bender = {x: parts[1], y: parts[2]};
+          if( last.benders ){
+            last.benders[1] = bender;
+          }
+          else{
+            last.benders = [{x:0,y:0}, bender];
+          }
+
+          last.angle = (last.benders[0].x / last.benders[0].y) +  (bender.x / bender.y);
+          move = {x: parts[5], y: parts[6] };
+          break;
+        case 'C':
+          p = { x: parts[5] - x, y: parts[6] - y, benders:[{x: parts[3] - parts[5], y: parts[4] - parts[6]}, {x: 0, y: 0}] };
+          p.angle = (p.benders[0].x / p.benders[0].y );
+          points.push( p );
+          bender = {x: parts[1] - x, y: parts[2] - y};
+          if( last.benders ){
+            last.benders[1] = bender;
+          }
+          else {
+            last.benders = [{x:0,y:0}, bender];
+          }
+          last.angle = (last.benders[0].x / last.benders[0].y ) - (last.benders[1].x / last.benders[1].y);
+          move = {x: parts[5] - x, y: parts[6] - y};
+          break;
+        case 'z':
+        case 'Z':
+          p = {x: 'end'};
+          break;
+      }
+
+      if( last && last.benders ){
+        last.lockedBenders = Math.abs(last.angle) < 0.01 ||
+          isNaN( last.angle ) && !isNaN( last.benders[0].x / last.benders[0].y) && !isNaN( last.benders[1].x / last.benders[1].y);
+        // delete last.angle;
+      }
+      if( points[points.length - 1].x != 'end' ){
+        x += move.x;
+        y += move.y;
+      }
+    });
+
+    console.log( 'Points', points );
+    var cornerPoints = [], last = {x:0, y:0};
+    points.forEach( p => {
+      if( !p.lockedBenders ){
+        cornerPoints.push({x: last.x + p.x, y: last.y + p.y, isBinding: isBinding});
+      }
+      last.x = p.x + last.x;
+      last.y = p.y + last.y;
+    });
+    return cornerPoints;
   }
 });
 

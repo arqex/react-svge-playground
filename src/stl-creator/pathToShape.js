@@ -105,7 +105,8 @@ module.exports = function transformSVGPath(pathStr) {
 				if (x !== firstX || y !== firstY)
 					path.lineTo(firstX, firstY);
 				break;
-			// - lines!
+			// - lines! Not used because is buggy when cropping
+			/*
 			case 'L':
 			case 'H':
 			case 'V':
@@ -124,6 +125,26 @@ module.exports = function transformSVGPath(pathStr) {
 				x = nx;
 				y = ny;
 				break;
+      */
+      // Lines, bezier version, not buggy
+      case 'L':
+      case 'H':
+      case 'V':
+        nx = (activeCmd === 'V') ? x : eatNum();
+        ny = (activeCmd === 'H') ? y : eatNum();
+        path.bezierCurveTo(x, y, nx, ny, nx, ny );
+        x = nx;
+        y = ny;
+        break;
+      case 'l':
+      case 'h':
+      case 'v':
+        nx = (activeCmd === 'v') ? x : (x + eatNum());
+        ny = (activeCmd === 'h') ? y : (y + eatNum());
+        path.bezierCurveTo(x, y, nx, ny, nx, ny );
+        x = nx;
+        y = ny;
+        break;
 			// - cubic bezier
 			case 'C':
 				x1 = eatNum(); y1 = eatNum();

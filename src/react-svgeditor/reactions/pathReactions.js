@@ -17,6 +17,7 @@ module.exports = function( freezer ){
     });
 
     data.canvas.elements.push( path );
+    freezer.get().set({creating: path.points[0]});
   });
 
   freezer.on('addPoint', function( previous, pos ){
@@ -32,7 +33,11 @@ module.exports = function( freezer ){
 
     data = freezer.get();
     ids[utils.last(path.points).id] = 1;
-    data.selected[path.id].set({points: utils.selectPoints( data.dataElements[0], ids )});
+    data.selected[path.id].set({points: utils.selectPoints( data.dataElements[0], ids ).points});
+
+    freezer.get().set({creating: pos});
+
+    freezer.trigger( 'history:push', freezer.get() );
   });
 
   freezer.on( 'closePath', function(){
@@ -44,6 +49,34 @@ module.exports = function( freezer ){
     data = freezer.get();
     data.canvas.elements.set( data.canvas.elements.length -1, data.dataElements[0] );
     freezer.get().selected.set( path.id, {points:{}, path: data.dataElements[0], type: 'path'} );
+    freezer.get().remove('creating');
+    freezer.trigger( 'history:push', freezer.get() );
+  });
+
+  freezer.on('path:addInnerPoint', function( path, pos ){
+    var curves = utils.pathToBezier( path ),
+      p = utils.closestPoint( curves, pos ),
+      newPointIndex = p.curve + 1,
+      splitted = curves[p.curve].split( p.t )
+    ;
+
+    curves.splice( p.curve, 1, splitted.left, splitted.right );
+    p = utils.bezierToPath( curves, path.id );
+
+    var newPath = path.reset( p ),
+      selectedPoints = {},
+      selected = {}
+    ;
+    selectedPoints[ newPath.points[newPointIndex].id ] = 1;
+    selected[ path.id ] = {
+      type: 'path',
+      path: newPath,
+      points: utils.selectPoints( newPath, selectedPoints ).points
+    };
+
+    freezer.get().set({selected: selected});
+
+    freezer.trigger( 'history:push', freezer.get() );
   });
 };
 

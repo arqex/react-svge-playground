@@ -4,8 +4,7 @@ var React = require('react'),
 	PathMode = require('./components/modes/PathMode'),
 	SelectMode = require('./components/modes/SelectMode'),
 	pathReactions = require('./reactions/pathReactions'),
-	selectReactions = require('./reactions/selectReactions'),
-	kb = require('keyboardjs')
+	selectReactions = require('./reactions/selectReactions')
 ;
 
 var SvgEditor = React.createClass({
@@ -64,6 +63,8 @@ var SvgEditor = React.createClass({
 				current.beforeOut();
 			if( next && next.beforeIn )
 				next.beforeIn( this.state.get() );
+
+			this.state.trigger('mode:updated', nextProps.mode);
 		}
 	},
 	loadFile: function( e ){
@@ -84,6 +85,16 @@ var SvgEditor = React.createClass({
 		Array.prototype.forEach.call( svg.querySelectorAll('path'), path => {
 
 		});
+	},
+	trigger: function(){
+		this.state.trigger.apply( this.state, arguments );
+	},
+	getHub: function(){
+		var hub = {};
+		['on','once','off','trigger'].forEach( method => {
+			hub[method] = this.state[method].bind( this.state );
+		});
+		return hub;
 	}
 });
 

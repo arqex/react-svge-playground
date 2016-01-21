@@ -71,6 +71,65 @@ module.exports = function( freezer ){
       typeInteractions.moveEnd( element, pos );
     });
 
-    freezer.get().remove('moving');
+    freezer.trigger('history:push', freezer.get().remove('moving'));
   });
+  freezer.on( 'select:delete', function(){
+    var selected = freezer.get().selected,
+      selectedIds = Object.keys(selected)
+    ;
+
+    selectedIds.forEach( function( id ){
+      var selection = freezer.get().selected[id],
+        elements, index
+      ;
+      if( selection.type == 'path' ){
+        deletePath( freezer, selection.path );
+        freezer.trigger('history:push', freezer.get());
+      }
+      else if( selection.type == 'point' ){
+        elements = [];
+        Object.keys(selection.points).forEach( id => {
+          if( selection.points[id] == 'selected')
+            elements.push( id );
+        });
+
+        if( elements.length > selection.path.points.length - 2 ){
+          // We can't let live a path with 1 or 0 points
+          deletePath( freezer, selection.path );
+          freezer.trigger('history:push', freezer.get());
+        }
+        else {
+          elements.forEach( id => {
+            var path = freezer.get().selected[ selection.path.id ].path;
+            for (var i = 0; i < path.points.length; i++) {
+              if( path.points[i].id === id ){
+                var p = path.points[i],
+                  points = path.points.splice(i,1)
+                ;
+                if( points[i].x != 'end' ){
+                  points[i].set({
+                    x: p.x + points[i].x,
+                    y: p.y + points[i].y
+                  });
+                }
+                return;
+              }
+            }
+          });
+          freezer.get().selected[ selection.path.id ].set({ points: {} });
+          freezer.trigger('history:push', freezer.get());
+        }
+      }
+    });
+  })
 };
+
+// Helpers
+function deletePath( freezer, path ){
+  var elements = freezer.get().canvas.elements;
+  var index = elements.indexOf( path );
+  if( index > -1 ){
+    elements.splice( index, 1 );
+  }
+  freezer.get().selected.remove( path.id );
+}

@@ -10,6 +10,12 @@ var PropertiesBar = React.createClass({
         <div><label>Line color: <input type="text" min="0" max="10" name="lineColor" /></label></div>
         <div><label>Fill color: <input type="text" min="0" max="10" name="fillColor" /></label></div>
         <div>Cursor x:y</div>
+        <div>
+          <button>Add</button>
+          <button>Subtract</button>
+          <button>Intersect</button>
+          <button>Difference</button>
+        </div>
       </div>
     );
   }

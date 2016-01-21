@@ -1,6 +1,7 @@
 var React = require('react');
 var DataCanvas = require('../DataCanvas');
 var utils = require('../../utils');
+var Bezier = require('bezier-js');
 
 var PathMode = React.createClass({
 	render: function(){
@@ -26,19 +27,22 @@ var PathMode = React.createClass({
 			path, points
 		;
 
-		if( !this.temp ){
+		if( !data.creating ){
 			// We are creating a new path
-			this.props.hub.trigger( 'createPath', this.createPath( pos ) );
-			this.temp = pos;
+			if( stack.length && stack[0].type == 'path' ){
+				// No, we are adding a new point
+				return this.props.hub.trigger('path:addInnerPoint', stack[0], pos );
+			}
+			else {
+				this.props.hub.trigger( 'createPath', this.createPath( pos ) );
+			}
 		}
 		else if( stack.length && stack[0].type == 'anchor' && stack[1].id == data.dataElements[0].points[0].id ) {
 			// this is the last point
 			this.props.hub.trigger( 'closePath' );
-			this.temp = false;
 		}
 		else {
-			this.props.hub.trigger('addPoint', this.temp, pos );
-			this.temp = pos;
+			this.props.hub.trigger('addPoint', data.creating, pos );
 		}
 	},
 	onMoveStart: function( stack, pos ){
@@ -46,13 +50,13 @@ var PathMode = React.createClass({
 		this.onHit( stack, pos );
 	},
 	onMove: function( e ){
-		if( !this.temp )
+		if( !this.props.data.creating )
 			return;
 
 		var path = this.props.data.dataElements[0],
 			point = path.points[ path.points.length - 2 ],
-			x = e.canvasX - this.temp.x,
-			y = e.canvasY - this.temp.y
+			x = e.canvasX - this.props.data.creating.x,
+			y = e.canvasY - this.props.data.creating.y
 		;
 
 		if( point.benders ){
@@ -93,12 +97,12 @@ var PathMode = React.createClass({
 	},
 	getRelativePos: function( pos ){
 	  return {
-	    x: pos.x - this.temp.x,
-	    y: pos.y - this.temp.y
+	    x: pos.x - this.props.data.creating.x,
+	    y: pos.y - this.props.data.creating.y
 	  };
 	},
 	onWander: function( e ){
-		if( !this.temp || this.bending )
+		if( !this.props.data.creating || this.bending )
 			return;
 		var path = this.props.data.dataElements[0];
 
