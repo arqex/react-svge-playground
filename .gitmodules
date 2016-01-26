@@ -1,0 +1,3 @@
+[submodule "react-svge"]
+	path = src/react-svge
+	url = https://github.com/arqex/react-svge.git
