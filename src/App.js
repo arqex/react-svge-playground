@@ -1,10 +1,9 @@
 import React from 'react';
-import SvgEditor from './react-svgeditor/SvgEditor';
-import ToolBar from './react-svgeditor/components/ToolBar';
-import PropertiesBar from './react-svgeditor/components/PropertiesBar';
+import SvgEditor from './react-svge/SvgEditor';
+import ToolBar from './react-svge/components/ToolBar';
+import PropertiesBar from './react-svge/components/PropertiesBar';
 import kb from 'keyboardjs';
-import historyManager from './react-svgeditor/historyManager';
-import StlCreator from './stl-creator/StlCreator';
+import historyManager from './react-svge/historyManager';
 
 var App = React.createClass({
 	getInitialState: function() {
@@ -14,21 +13,18 @@ var App = React.createClass({
 	},
 	render: function(){
 		var mode = this.state.mode;
-		// add to activate 3D
-		// <StlCreator />
 		return (
 			<div>
-				{ /* <ToolBar mode={ mode } onSelectMode={ this.onModeChange } /> */}
-				{ /* <SvgEditor ref="editor" mode={ mode } /> */ }
-				{ /* <PropertiesBar /> */ }
-				<StlCreator />
+				<ToolBar mode={ mode } onSelectMode={ this.onModeChange } />
+				<SvgEditor ref="editor" mode={ mode } />
+				<PropertiesBar />
 			</div>
 		);
 	},
 	onModeChange: function( mode ){
 		this.setState({ mode: mode });
 	},
-	componentDidMountOld: function() {
+	componentDidMount: function() {
 		var hub = this.refs.editor.getHub();
 
 		kb.on('p', () => this.setState({mode: 'path'}) );
