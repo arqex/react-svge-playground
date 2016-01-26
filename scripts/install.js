@@ -4,8 +4,11 @@ var exec = require('child_process').exec,
 
 exec( 'git submodule init', function(){
   exec( 'git submodule update', function(){
-    exec( 'npm install', {cwd: Path.join(__dirname, 'src/react-svge')}, function(){
-      console.log( 'Todo bien' );
+    exec( 'npm install', {cwd: Path.join(__dirname, 'src/react-svge')}, function( err ){
+      if( err )
+        console.log( err );
+      else
+        console.log( 'Todo bien' );
     });
   });
 });
