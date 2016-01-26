@@ -7,6 +7,7 @@ react-svge is an open-sourced react component made by the community. It aims to 
 ## Installation
 ```
 git clone https://github.com/arqex/react-svge-playground.git
+git submodule init
 git submodule update
 npm install
 ```
