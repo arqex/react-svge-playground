@@ -6,18 +6,16 @@ import kb from 'keyboardjs';
 import historyManager from './react-svge/historyManager';
 
 var App = React.createClass({
-	getInitialState: function() {
-		return {
-			mode: 'path'
-		};
+	componentWillMount: function(){
+		this.freezer = SvgEditor.createSourceData();
 	},
 	render: function(){
-		var mode = this.state.mode;
+		var mode = this.freezer.get().mode;
 		return (
 			<div>
-				<ToolBar mode={ mode } onSelectMode={ this.onModeChange } />
-				<SvgEditor ref="editor" mode={ mode } />
-				<PropertiesBar />
+				<ToolBar source={ this.freezer } mode={ mode } onSelectMode={ this.onModeChange } />
+				<SvgEditor source={ this.freezer } ref="editor" mode={ mode } onChange={ this.onDataChange } />
+				<PropertiesBar source={ this.freezer } />
 			</div>
 		);
 	},
@@ -25,10 +23,16 @@ var App = React.createClass({
 		this.setState({ mode: mode });
 	},
 	componentDidMount: function() {
-		var hub = this.refs.editor.getHub();
+		var hub = this.freezer.getEventHub(),
+			me = this
+		;
 
-		kb.on('p', () => this.setState({mode: 'path'}) );
-		kb.on('v', () => this.setState({mode: 'select'}) );
+		hub.on('update', function(){
+			me.forceUpdate();
+		});
+
+		kb.on('p', () => this.freezer.get().set({mode: 'path'}) );
+		kb.on('v', () => this.freezer.get().set({mode: 'select'}) );
 		kb.withContext('select', () => {
 			kb.on('del', e => {
 				e.preventDefault();
@@ -47,8 +51,11 @@ var App = React.createClass({
 			kb.setContext( mode );
 		})
 
-		historyManager.startHistory( this.refs.editor );
+		historyManager.startHistory( this.freezer );
 	},
+	onDataChange( data ){
+
+	}
 });
 
 module.exports = App;
